@@ -59,10 +59,10 @@ void setup()
 {
     Serial.begin(115200);
     initializeSwitches();
-    
-        connectToWiFi();
-        initializeFirebase();
-    
+
+    connectToWiFi();
+    initializeFirebase();
+
     initializeIndicationLEDs();
     initializeRGBLEDs();
     stateOfMode = 0;
@@ -71,7 +71,7 @@ void setup()
 void loop()
 {
     // put your main code here, to run repeatedly:
-    
+
     readRGBFromFirebse();
     if (digitalRead(SW2_PIN) == HIGH)
     {
@@ -108,8 +108,8 @@ void loop()
     }
     Serial.println(stateOfMode);
     if (red == 0 && green == 0 && blue == 0)
-    { 
-      if (stateOfSOS)
+    {
+        if (stateOfSOS)
         {
             Serial.println("SOS");
             sos(stateOfSOS);
@@ -118,13 +118,12 @@ void loop()
         {
             rgbLighting(stateOfMode);
         }
-        
     }
     else
     {
-       rgb(red, green, blue);
+        rgb(red, green, blue);
     }
-    
+
     delay(10);
 }
 
@@ -163,7 +162,6 @@ void initializeFirebase()
     Firebase.reconnectNetwork(true);
     Firebase.setDoubleDigits(5);
 }
-
 
 void initializeSwitches()
 {

@@ -20,7 +20,7 @@ bool stateOfWIFI = true;
 // errors
 bool error = false;
 int errorCode = 0;
-//-------------------------
+
 void setup()
 {
     Serial.begin(115200);
