@@ -5,7 +5,8 @@
 #include <Adafruit_Sensor.h>
 
 #include <EEPROM.h>
-// #include <WiFi.h>
+#include <WiFi.h>
+#include <WebServer.h>
 
 // // Firebase
 // // #include <FirebaseESP32.h>
@@ -18,6 +19,10 @@
 // MPU
 #define MPU_SDA 21
 #define MPU_SCL 22
+#define OUT 25
+#define RGB_R 14
+#define RGB_G 12
+#define RGB_B 13
 
 // firebase
 // FirebaseData firebaseData;
@@ -36,8 +41,8 @@ float stepThreshold = 1.2; // Experimentally determined threshold for step detec
 float debounceTime = 250;  // Minimum time between steps (milliseconds)
 
 // Network and Firebase credentials
-// String ssid = "SLT-4G_163BEA";
-// String password = "751FCEED";
+String ssid = "SLT-4G_163BEA";
+String password = "751FCEED";
 
 // #define FIREBASE_HOST "https://elec-research-0-default-rtdb.asia-southeast1.firebasedatabase.app"
 // #define FIREBASE_AUTH "AIzaSyCvhDMEJ9gnl8lqyV282-8pdHOVmZqyVPs"
@@ -52,36 +57,111 @@ float debounceTime = 250;  // Minimum time between steps (milliseconds)
 bool error = false;
 int errorCode = 0;
 //-------------------------
+
+WebServer server(80); // Object to hold the HTTP server
+
+String logData = ""; // String to store log data
+
+// HTML code for the web page
+String getHtmlPage()
+{
+    String page = R"rawliteral(
+<!DOCTYPE HTML><html>
+<head>
+  <title>ESP32 Web Server</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+  <h1>ESP32 Web Server</h1>
+  <h2>Console Output:</h2>
+  <pre>)rawliteral";
+    page += logData;
+    page += R"rawliteral(</pre>
+</body>
+</html>
+)rawliteral";
+    return page;
+}
+
+void addLogData(const String &message)
+{
+    // Add new log message to logData
+    logData += message + "\n"; // Append new message with a newline
+    if (logData.length() > 1000)
+    {                                     // Prevent string from becoming too large
+        logData = logData.substring(500); // Keep the last part if it's too long
+    }
+}
 void setup()
 {
     Serial.begin(115200);
     // if (stateOfWIFI)
     // {
-    //     connectToWiFi();
+    connectToWiFi();
     //     initializeFirebase();
     // }
     initializeMPU6050();
+    pinMode(OUT, OUTPUT);
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(1000);
+        Serial.println("Connecting to WiFi...");
+        addLogData("Connecting to WiFi...");
+       
+    }
+    if(WiFi.status() == WL_CONNECTED){
+      digitalWrite(OUT, HIGH);
+    }else{
+      digitalWrite(OUT, LOW);
+    }
+    Serial.println("Connected to WiFi");
+    addLogData("Connected to WiFi");
+    Serial.println(WiFi.localIP());
+    server.on("/", HTTP_GET, []()
+              {
+                  server.send(200, "text/html", getHtmlPage()); // Send web page with log data
+              });
+  initializeRGBLEDs();
+  server.begin();
+    rgb(100, 200, 255);
 }
 void loop()
 {
     // put your main code here, to run repeatedly:
     // Serial.println("loop");
+    server.handleClient(); // Handle client requests
     detectStep();
     displayStepCount();
+if(WiFi.status() == WL_CONNECTED){
+      digitalWrite(OUT, HIGH);
+    }else{
+      digitalWrite(OUT, LOW);
+    }
+    // Example of adding data to the log
+    // Normally, you would add real log messages here
+    static unsigned long lastTime = 0;
+    unsigned long currentTime = millis();
+    if (currentTime - lastTime > 5000)
+    { // Add new log every 5 seconds
+        lastTime = currentTime;
+        String message = "Timestamp: " + String(currentTime);
+        Serial.println(message);
+        addLogData(message);
+    }
     delay(100);
 }
 
-// void connectToWiFi()
-// {
-//     WiFi.begin(ssid, password);
-//     while (WiFi.status() != WL_CONNECTED)
-//     {
-//         delay(1000);
-//         Serial.println("Connecting to WiFi...");
-//     }
-//     Serial.println("Connected to WiFi");
-//     stateOfWIFI = true;
-// }
+void connectToWiFi()
+{
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(1000);
+        Serial.println("Connecting to WiFi...");
+    }
+    Serial.println("Connected to WiFi");
+    // stateOfWIFI = true;
+}
 
 // void initializeFirebase()
 // {
@@ -115,7 +195,7 @@ void initializeMPU6050()
         Serial.println("Failed to find MPU6050 chip");
         while (1)
         {
-            delay(10);
+             delay(10);
         }
     }
     Serial.println("MPU6050 Found!");
@@ -169,6 +249,8 @@ void saveStepCount()
     // Save stepCount to EEPROM
     EEPROM.put(0, stepCount);
     EEPROM.commit();
+    
+    addLogData(String(stepCount));
     // FirebaseJson json;
     // json.set("/step", stepCount);
     // String path = "/" + USER_ID + "/count/step/";
@@ -178,7 +260,7 @@ void saveStepCount()
 void displayStepCount()
 {
     Serial.print("Steps: ");
-    Serial.println(stepCount);
+    Serial.println(String(stepCount));
 }
 
 // Serial.print("Gyro X: ");
@@ -208,3 +290,15 @@ void displayStepCount()
 
 // Calculate the magnitude of acceleration
 // accX * accX is equivalent to pow(accX, 2)
+void initializeRGBLEDs()
+{
+    pinMode(RGB_R, OUTPUT);
+    pinMode(RGB_G, OUTPUT);
+    pinMode(RGB_B, OUTPUT);
+}
+void rgb(int r, int g, int b)
+{
+    analogWrite(RGB_R, r);
+    analogWrite(RGB_G, g);
+    analogWrite(RGB_B, b);
+}

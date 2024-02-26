@@ -56,6 +56,7 @@ unsigned long lastStepTime = 0;
 int stepCount = 0;
 float stepThreshold = 1.2; // Experimentally determined threshold for step detection
 float debounceTime = 250;  // Minimum time between steps (milliseconds)
+int lastIndexInt = 0;
 
 // Network and Firebase credentials
 String ssid = "SLT-4G_163BEA";
@@ -76,9 +77,8 @@ int errorCode = 0;
 void setup()
 {
     Serial.begin(115200);
-    
-        connectToWiFi();
-        initializeFirebase();
+    connectToWiFi();
+    initializeFirebase();
     initializeMPU6050();
     initializeRTC();
     initializeSDCard();
@@ -161,19 +161,7 @@ void initializeRTC()
     Serial.println("Initializing RTC");
     Rtc.Begin();
     RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
-    // if (!Rtc.IsDateTimeValid())
-    // {
-    //     if (Rtc.LastError() != 0)
-    //     {
-    //         Serial.print("RTC communications error = ");
-    //         Serial.println(Rtc.LastError());
-    //     }
-    //     else
-    //     {
-    //         Serial.println("RTC lost confidence in the DateTime!");
-    //         Rtc.SetDateTime(compiled);
-    //     }
-    // }
+
     if (!Rtc.GetIsRunning())
     {
         Serial.println("RTC was not actively running, starting now");
@@ -198,17 +186,13 @@ void initializeRTC()
 String getDate()
 {
     now = Rtc.GetDateTime();
-    String dateTime = String(now.Year(), DEC) 
-        + "/" + String(now.Month(), DEC) 
-        + "/" + String(now.Day(), DEC) ;
+    String dateTime = String(now.Year(), DEC) + "/" + String(now.Month(), DEC) + "/" + String(now.Day(), DEC);
     return dateTime;
 }
 String getTime()
 {
     now = Rtc.GetDateTime();
-    String dateTime =String(now.Hour(), DEC) 
-        + ":" + String(now.Minute(), DEC) 
-        + ":" + String(now.Second(), DEC);
+    String dateTime = String(now.Hour(), DEC) + ":" + String(now.Minute(), DEC) + ":" + String(now.Second(), DEC);
     return dateTime;
 }
 
@@ -253,29 +237,98 @@ void detectStep()
         Serial.println("Error reading MPU data");
     }
 }
-bool findLastDate(){
-    // Find last date
-    
-  
+bool findLastDate()
+{
+    FirebaseJson json;
+    FirebaseData fbdoLastIndex;
+    // FirebaseJsonArray arr;
+
+    String path = "/" + USER_ID + "/count/step";
+    Serial.printf("Get Array... %s\n\n", Firebase.RTDB.getJSON(&fbdo, path) ? "ok" : fbdo.errorReason().c_str());
+    if (fbdo.dataType() == "json")
+    {
+        json = fbdo.jsonObject();
+        Serial.println("Data type: " + fbdo.dataType());
+        FirebaseJsonData result;
+
+        json.get(result, "/list");
+        if (result.success)
+        {
+            Serial.println(result.type);
+        }
+        FirebaseJsonArray arr;
+        result.get<FirebaseJsonArray>(arr);
+        Serial.printf("Get Array... %s\n\n", Firebase.RTDB.getJSON(&fbdoLastIndex, path + "/list/" + (arr.size() - 1) + "/date") ? "ok" : fbdoLastIndex.errorReason().c_str());
+        if (fbdoLastIndex.dataType() == "string")
+        {
+            lastIndexInt = arr.size() - 1;
+            String date = fbdoLastIndex.stringData();
+            Serial.println("Last date: " + date);
+            if (date == getDate())
+            {
+                Serial.println("Same date");
+                return true;
+            }
+            else
+            {
+                Serial.println("Different date");
+                return false;
+            }
+        }
+        else
+        {
+            Serial.println("Invalid data type");
+            return false;
+        }
+    }
+    else
+    {
+        Serial.println("Invalid data type");
+        return false;
+    }
 }
 void saveStepCount()
 {
     // Save stepCount to EEPROM
     EEPROM.put(0, stepCount);
     EEPROM.commit();
-    FirebaseJsonArray arr;
-    FirebaseJson json1;
-    FirebaseJson json2;
-    json1.set("/step", stepCount);
-    json1.set("/date", getDate());
-    json1.set("/time", getTime());
+    if (findLastDate())
+    {
+        updateStepCount();
+    }
+    else
+    {
+        addStepCount();
+    }
+}
+
+void updateStepCount()
+{
+    FirebaseJson json;
+    String path = "/" + USER_ID + "/count/step/list/" + lastIndexInt;
+    json.set("/step", stepCount);
+    json.set("/date", getDate());
+    json.set("/time", getTime());
+    // update json
+    Serial.printf("Update json... %s\n\n", Firebase.RTDB.updateNode(&fbdo, path, &json) ? "ok" : fbdo.errorReason().c_str());
+    // logData();
+    // delay(100);
+}
+
+void addStepCount()
+{
+
+    // FirebaseJsonArray arr;
+    // get old data
+    FirebaseJson json;
+    json.set("/step", stepCount);
+    json.set("/date", getDate());
+    json.set("/time", getTime());
     String path = "/" + USER_ID + "/count/step";
-    arr.add(json1);
-    json2.set("/step", stepCount);
-    json2.set("/list", arr);
-        // update json
-    Serial.printf("Update json... %s\n\n", Firebase.RTDB.updateNode(&fbdo, path, &json2) ? "ok" : fbdo.errorReason().c_str());
-    logData();
+    // arr.add(json);
+    // update json
+    Serial.printf("Update json... %s\n\n", Firebase.RTDB.setJSON(&fbdo, path + "/list/" + (lastIndexInt + 1), &json) ? "ok" : fbdo.errorReason().c_str());
+    // logData();
     // delay(100);
 }
 
@@ -285,7 +338,7 @@ void displayStepCount()
     Serial.println(stepCount);
 }
 
-//log data in SD
+// // log data in SD
 void logData()
 {
     // log data in SD
@@ -296,39 +349,10 @@ void logData()
         String data = getDate() + " " + getTime() + " " + String(stepCount);
         file.println(data);
         file.close();
-        Serial.println("Data logged in SD "+ data);
+        Serial.println("Data logged in SD " + data);
     }
     else
     {
         Serial.println("Failed to open file for writing");
     }
-    
 }
-
-// Serial.print("Gyro X: ");
-// Serial.print(g.gyro.x);
-// Serial.print(", Y: ");
-// Serial.print(g.gyro.y);
-// Serial.print(", Z: ");
-// Serial.println(g.gyro.z);
-
-// Serial.print("Temperature: ");
-// Serial.println(temp.temperature);
-
-// float accMagnitude = sqrt(accX * accX + accY * accY + accZ * accZ);: This line calculates the magnitude of the acceleration vector using the calculated acceleration values for the X, Y, and Z axes. The sqrt() function is used to calculate the square root of the sum of the squared acceleration values.
-// Serial.println(accMagnitude);
-// Serial.println(i);
-// Serial.println(accX);
-// Peak detection
-
-// float accX = accelX / 16384.0;
-// float accY = accelY / 16384.0;
-// float accZ = accelZ / 16384.0;
-// Create a string containing the step count data
-// String stepData = String(stepCount);
-// Update the characteristic value
-// pStepDataCharacteristic->setValue(stepData.c_str());
-// pStepDataCharacteristic->notify();
-
-// Calculate the magnitude of acceleration
-// accX * accX is equivalent to pow(accX, 2)

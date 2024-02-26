@@ -1,0 +1,29 @@
+
+if (stateOfFirebase)
+    {
+        stateOfSOS = listningSOS();
+        if (readRGBFromFirebse())
+        {
+            if (!readDeviceStateFormFirebase())
+            {
+                rgb(0, 0, 0);
+                deviceState = false;
+            }
+            else
+            {
+                rgb(red, green, blue);
+            }
+        }
+    }
+    else if (stateOfMode > 0)
+    {
+        rgbLighting(stateOfMode - 1);
+    }
+    else
+    {
+        rgbLighting(0);
+    }
+    if (stateOfSOS)
+    {
+        activityStartSOSSignal();
+    }

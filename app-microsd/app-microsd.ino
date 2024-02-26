@@ -37,10 +37,9 @@ String password = "751FCEED";
 String USER_EMAIL = "device@gmail.com";
 String USER_PASSWORD = "123456";
 const String DEVICE_ID = "10001";
-String USER_ID = "HYWBRRXdwtN7TseWcR5AKpybrqW2";
+String USER_ID = "ltMvLzncQ6et1HDFmrDffP4r8NE3";
 // SD Card
 File userFile;
-String doc;
 void setup()
 {
   Serial.begin(115200);
@@ -49,8 +48,18 @@ void setup()
   if (initializeSDCard())
   {
     Serial.println("initializeSDCard");
-    checkAndCreateDeviceJson();
-    // StaticJsonDocument<512> f = readDeviceJson();
+
+    if (checkAndCreateDeviceJson())
+    {
+      String jsonString = readDeviceJson();
+      JsonDocument json;
+      deserializeJson(json, jsonString);
+      Serial.println(jsonString);
+    }
+    else
+    {
+      Serial.println("non");
+    }
   }
 }
 void loop()
@@ -73,9 +82,8 @@ void connectToWiFi()
 void initializeFirebase()
 {
   Serial.println("Initializing Firebase");
-  w
-      // Firebase.begin("FIREBASE_HOST", "FIREBASE_AUTH");
-      config.api_key = FIREBASE_AUTH;
+  // Firebase.begin("FIREBASE_HOST", "FIREBASE_AUTH");
+  config.api_key = FIREBASE_AUTH;
   config.database_url = FIREBASE_HOST;
   fbdo.setBSSLBufferSize(2048 /* Rx buffer size in bytes from 512 - 16384 */, 1024 /* Tx buffer size in bytes from 512 - 16384 */);
 
@@ -95,7 +103,6 @@ void initializeFirebase()
   Firebase.reconnectNetwork(true);
   Firebase.setDoubleDigits(5);
 }
-
 bool initializeSDCard()
 {
   Serial.println("Initializing SD Card");
@@ -113,25 +120,25 @@ bool checkAndCreateDeviceJson()
   if (!SD.exists("/device.txt"))
   {
     // Device.json doesn't exist, fetch data from Firebase
-    if (!fetchDataFromFirebase(doc))
+    if (!fetchDataFromFirebase())
     {
       return false; // Failed to fetch data
     }
-    // Write the fetched data to device.json
-    return writeDeviceJson(doc);
+    else
+    {
+      Serial.println("failtto");
+    }
   }
   else
   {
     Serial.println("device.json already exists");
-    deleteFile("/device.txt");
-    checkAndCreateDeviceJson();
   }
   return true; // File exists or was successfully created
 }
 
 bool fetchDataFromFirebase()
 {
-
+  String doc = "";
   if (Firebase.RTDB.getString(&fbdo, "/device/" + DEVICE_ID + "/user_id"))
   {
     if (fbdo.dataType() == "string")
@@ -139,21 +146,25 @@ bool fetchDataFromFirebase()
       FirebaseJson firebaseJson;
       Serial.println(fbdo.stringData());
       USER_ID = fbdo.stringData();
-      if (Firebase.RTDB.getJSON(&userData, "/" + USER_ID + "/", &firebaseJson))
+      FirebaseJsonData result;
+      if (Firebase.RTDB.getJSON(&userData, "/" + USER_ID + "/user", &firebaseJson))
       {
         if (userData.dataType() == "json")
         {
-          firebaseJson.toString(doc, true); // The 'true' argument formats the string with indentation
-          Serial.println(doc);
-          // Step 2: Deserialize String to JsonDocument
-          // Adjust size as necessary
-          // DeserializationError error = deserializeJson(doc, jsonString);
-
-          // if (error)
-          // {
-          //   Serial.print(F("deserializeJson() failed: "));
-          //   Serial.println(error.f_str());
-          // }
+          firebaseJson.get(result, "/");
+          if (result.success)
+          {
+            doc = result.stringValue;
+            if (writeDeviceJson(doc))
+            {
+              return true;
+            }
+            else
+            {
+              Serial.println("Writting error");
+              return false;
+            }
+          }
         }
         else
         {
@@ -188,19 +199,16 @@ String readDeviceJson()
   if (!userFile)
   {
     Serial.println("Failed to open device.json for reading");
-    return doc; // Return empty document in case of failure
+    return "";
+    // Return empty document in case of failure
   }
-  doc = "";
-  while (userFile.available())
-  {
-    doc += (char)userFile.read();
-  }
+  doc += userFile.read();
   Serial.println(doc);
   userFile.close();
   return doc;
 }
 
-bool writeDeviceJson(const String &doc)
+bool writeDeviceJson(const String doc)
 {
   userFile = SD.open("/device.txt", FILE_WRITE);
   if (!userFile)
@@ -227,16 +235,17 @@ void deleteFile(const char *path)
     Serial.println("File doesn't exist");
   }
 }
-DynamicJsonDocument toJson(String jsonString)
-{
-  DynamicJsonDocument docs(1024);
-  DeserializationError error = deserializeJson(docs, jsonData);
 
-  // Test if parsing succeeds
-  if (error)
-  {
-    Serial.print(F("deserializeJson() failed: "));
-    Serial.println(error.c_str());
-  }
-  return docs;
-}
+// DynamicJsonDocument toJson(String jsonString)
+// {
+//   DynamicJsonDocument docs(1024);
+//   DeserializationError error = deserializeJson(docs, jsonString);
+
+//   // Test if parsing succeeds
+//   if (error)
+//   {
+//     Serial.print(F("deserializeJson() failed: "));
+//     Serial.println(error.c_str());
+//   }
+//   return docs;
+// }

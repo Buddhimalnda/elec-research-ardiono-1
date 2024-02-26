@@ -1,0 +1,16 @@
+{
+  "files.associations": {
+    "*.embeddedhtml": "html",
+    "*.js": "javascriptreact",
+    "istream": "cpp",
+    "memory": "cpp",
+    "type_traits": "cpp",
+    "xlocnum": "cpp",
+    "tuple": "cpp",
+    "utility": "cpp",
+    "xutility": "cpp",
+    "xlocale": "cpp",
+    "xlocinfo": "cpp",
+    "xstring": "cpp"
+  }
+}
