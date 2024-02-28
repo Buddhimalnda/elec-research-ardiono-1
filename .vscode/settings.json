@@ -11,6 +11,15 @@
     "xutility": "cpp",
     "xlocale": "cpp",
     "xlocinfo": "cpp",
-    "xstring": "cpp"
+    "xstring": "cpp",
+    "*.tcc": "cpp",
+    "fstream": "cpp",
+    "string": "cpp",
+    "array": "cpp",
+    "deque": "cpp",
+    "unordered_map": "cpp",
+    "vector": "cpp",
+    "string_view": "cpp",
+    "initializer_list": "cpp"
   }
 }
