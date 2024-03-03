@@ -31,6 +31,7 @@
 #define RGB_R 14
 #define RGB_G 12
 #define RGB_B 13
+
 #define DATA_PIN 33
 #define LATCH_PIN 26
 #define CLOCK_PIN 27
@@ -72,7 +73,7 @@ FirebaseData fbdo;
 const char *DEVICE_ID = "10001";
 String USER_EMAIL = "device@gmail.com";
 String USER_PASSWORD = "123456";
-String USER_ID = "ltMvLzncQ6et1HDFmrDffP4r8NE3";
+String USER_ID = "Jc93k3nTSIS3ROKS0jRwQ4vnLvH3";
 
 // state of
 bool onlineMode = false;
@@ -81,9 +82,9 @@ bool stateOfACTIVITY = false;
 bool connectedWifi = false;
 
 // RGB LED
-int red = 0;
-int green = 0;
-int blue = 0;
+int red = 255;
+int green = 255;
+int blue = 255;
 int MODE = 0;
 
 // MPU
@@ -157,25 +158,25 @@ void setup()
     xTaskCreate(
         TaskRGB,      // Task function
         "RGBControl", // Name of the task
-        2048,         // Stack size (bytes)
+        10000,        // Stack size (bytes)
         NULL,         // Task input parameter
-        3,            // Priority of the task
+        1,            // Priority of the task
         NULL);        // Task handle
     xTaskCreate(
         TaskStepCounter, // Task function
         "MPU6050Read",   // Name of the task
-        2048,            // Stack size (bytes)
+        10000,           // Stack size (bytes)
         NULL,            // Task input parameter
         4,               // Priority of the task
         NULL);           // Task handle
-                         // Task handle
-    xTaskCreate(
-        ErrorIndicatorTask, // Task function
-        "ErrorIndicator",   // Name of the task
-        2048,               // Stack size (bytes)
-        NULL,               // Task input parameter
-        2,                  // Priority of the task
-        NULL);              // Task handle
+    //                      // Task handle
+    // xTaskCreate(
+    //     ErrorIndicatorTask, // Task function
+    //     "ErrorIndicator",   // Name of the task
+    //     2048,               // Stack size (bytes)
+    //     NULL,               // Task input parameter
+    //     2,                  // Priority of the task
+    //     NULL);              // Task handle
 }
 void onlineModeAction()
 {
@@ -199,15 +200,15 @@ void onlineModeAction()
             // const char *device = docjson["device"];     // "1002"
             USER_EMAIL = docjsonR["email"].as<String>();           // "dn@rb.com"
             USER_PASSWORD = docjsonR["password"].as<String>();     // "123455"
-            USER_ID = docjsonR["userId"].as<String>();             // "ltMvLzncQ6et1HDFmrDffP4r8NE3"
+            USER_ID = docjsonR["uid"].as<String>();                // "ltMvLzncQ6et1HDFmrDffP4r8NE3"
             SSID = docjsonR["wifi"]["ssid"].as<String>();          // "SLT-4G_163BEA"
             WIFI_PASS = docjsonR["wifi"]["password"].as<String>(); // "751FCEED"
             connectToWiFi();
             initializeFirebase();
             onlineMode = true;
         }
-        int step = readLastStepcountFromSD(getDateForPath());
-        printSerial(step);
+        int step = readLastStepcountFromSD();
+        Serial.println(step);
         if (step > 0)
         {
             stepCount = step;
@@ -281,20 +282,15 @@ void TaskRGB(void *pvParameters)
     { // Infinite loop
         printSerial("Task is running: TaskRGB");
         vTaskDelay(1000 / portTICK_PERIOD_MS); // Delay for a second
+
+        Serial.println("RGB: " + String(red) + " " + String(green) + " " + String(blue));
         if (onlineMode)
         {
-            printSerial("onlineMode");
-            if (!stateOfSOS)
-            {
-                readRGBFromFirebse();
+            printSerial("TaskRGB: onlineMode");
+            if (readRGBFromFirebse())
                 rgb(red, green, blue);
-                printSerial("RGB: " + String(red) + " " + String(green) + " " + String(blue));
-            }
-            else
-            {
-                sos(true);
-                printSerial("SOS: ");
-            }
+            rgb(red, green, blue);
+            Serial.println("RGB: " + String(red) + " " + String(green) + " " + String(blue));
         }
         else
         {
@@ -319,7 +315,6 @@ void TaskStepCounter(void *pvParameters)
         vTaskDelay(150 / portTICK_PERIOD_MS); // Delay for a second
         printSerial("detectStep");
         detectStep();
-        displayStepCount();
     }
 }
 void ErrorIndicatorTask(void *pvParameters)
@@ -333,7 +328,7 @@ void ErrorIndicatorTask(void *pvParameters)
         uint8_t warningBinary = findWarningCode(warningIndicator.warningCode);
         uint8_t leds = errorBinary + successBinary + warningBinary;
 
-        printSerial(errorBinary);
+        Serial.println(errorBinary);
         // print
         printSerial("Error: " + errorIndicator.errorMessage);
         printSerial("Success: " + successIndicator.successMessage);
@@ -481,7 +476,7 @@ void initializeRGBLEDs()
     pinMode(RGB_R, OUTPUT);
     pinMode(RGB_G, OUTPUT);
     pinMode(RGB_B, OUTPUT);
-    printSerial("initializeRGBLEDs Done.")
+    printSerial("initializeRGBLEDs Done.");
     // pinMode(OUT_LED, OUTPUT);
 }
 
@@ -567,18 +562,19 @@ void activityAction()
 
 bool readRGBFromFirebse()
 {
-    FirebaseData fbdo;
+    printSerial("readRGBFromFirebse...");
+    // FirebaseData fbdo;
     if (Firebase.RTDB.getInt(&fbdo, "/" + USER_ID + "/led/red"))
     {
         if (fbdo.dataType() == "int")
         {
             red = fbdo.intData();
-            printSerial(red);
+            Serial.println(red);
         }
     }
     else
     {
-        printSerial(fbdo.errorReason());
+        Serial.println(fbdo.errorReason());
         return false;
     }
     if (Firebase.RTDB.getInt(&fbdo, "/" + USER_ID + "/led/green"))
@@ -586,12 +582,12 @@ bool readRGBFromFirebse()
         if (fbdo.dataType() == "int")
         {
             green = fbdo.intData();
-            printSerial(green);
+            Serial.println(green);
         }
     }
     else
     {
-        printSerial(fbdo.errorReason());
+        Serial.println(fbdo.errorReason());
         return false;
     }
     if (Firebase.RTDB.getInt(&fbdo, "/" + USER_ID + "/led/blue"))
@@ -599,12 +595,12 @@ bool readRGBFromFirebse()
         if (fbdo.dataType() == "int")
         {
             blue = fbdo.intData();
-            printSerial(blue);
+            Serial.println(blue);
         }
     }
     else
     {
-        printSerial(fbdo.errorReason());
+        Serial.println(fbdo.errorReason());
         return false;
     }
     return true;
@@ -729,16 +725,16 @@ void printSerial(String message)
     docPrint["time"] = getTime();
     // serialize json to string
     String output;
-    serializeJson(doc, output);
+    serializeJson(docPrint, output);
     if (onlineMode)
     {
         addLogData(message);
     }
-    logInSD(&output)
+    // logInSD(output);
 }
-void logInSD(const String &message)
+void logInSD(const String message)
 {
-    File fileLSD = SD.open("/log.txt", FILE_APPEND);
+    File fileLSD = SD.open("/log.txt", FILE_WRITE);
     if (fileLSD)
     {
 
@@ -761,6 +757,7 @@ String getDateForPath()
 {
     now = Rtc.GetDateTime();
     String dateTime = String(now.Year(), DEC) + "-" + String(now.Month(), DEC) + "-" + String(now.Day(), DEC);
+    printSerial(dateTime);
     return dateTime;
 }
 String getTime()
@@ -802,16 +799,11 @@ void detectStep()
             stepCount++;
             // saveStepCount();
             printSerial("Step Count: " + String(stepCount));
-            printSerial("Step Count: " + String(stepCount));
             if (onlineMode)
             {
                 saveStepCountInCloud();
-                saveStepCountInSD();
             }
-            else
-            {
-                saveStepCountInSD();
-            }
+            saveStepCountInSD();
         }
         accMagnitudePrev = accMagnitude;
     }
@@ -819,6 +811,7 @@ void detectStep()
     {
         printSerial("Error reading MPU data");
     }
+    delay(10);
 }
 
 void saveStepCountInCloud()
@@ -826,36 +819,28 @@ void saveStepCountInCloud()
     // Save stepCount to EEPROM
     EEPROM.put(0, stepCount);
     EEPROM.commit();
-    if (findLastDate())
-    {
-        updateStepCount();
-    }
-    else
-    {
-        addStepCount();
-    }
+    // if (findLastDate())
+    // {
+    // }
+    updateStepCount();
+    // else
+    // {
+    //     addStepCount();
+    // }
 }
 void saveStepCountInSD()
 {
     // Save stepCount to SD card
-    String pathSSD = "/step-" + getDateForPath() + ".txt"; // ex:  date = 2021-10-10, path = /step-2021-10-10.txt
-    File fileSSD = SD.open(pathSSD, FILE_APPEND);
+    String pathSSD = "/step.txt"; // ex:  date = 2021-10-10, path = /step-2021-10-10.txt
+    File fileSSD = SD.open(pathSSD, FILE_WRITE);
     if (fileSSD)
     {
-        // create json object
-        DynamicJsonDocument docSSD(1024);
-        docSSD["step"] = stepCount;
-        docSSD["date"] = getDate();
-        docSSD["time"] = getTime();
-        // serialize json to string
-        String outputSSD = "";
-        serializeJson(docSSD, outputSSD);
-        fileSSD.println(outputSSD);
+        fileSSD.println(stepCount);
         fileSSD.close();
     }
     else
     {
-        printSerial("Failed to open stepCount.txt for writing");
+        printSerial("Failed to open " + pathSSD + " for writing");
     }
 }
 bool findLastDate()
@@ -911,10 +896,10 @@ bool findLastDate()
 void updateStepCount()
 {
     FirebaseJson json;
-    String pathUSC = "/" + USER_ID + "/count/step/list/" + lastIndexInt;
+    String pathUSC = "/" + USER_ID + "/count/step/";
     json.set("/step", stepCount);
-    json.set("/date", getDate());
-    json.set("/time", getTime());
+    // json.set("/date", getDate());
+    // json.set("/time", getTime());
     // update json
     Serial.printf("Update json... %s\n\n", Firebase.RTDB.updateNode(&fbdo, pathUSC, &json) ? "ok" : fbdo.errorReason().c_str());
     // logData();
@@ -994,9 +979,9 @@ void readStepCounterLogFormSD()
     file.close();
 }
 
-int readLastStepcountFromSD(String date)
+int readLastStepcountFromSD()
 {
-    String pathLSD = "/step-" + date + ".txt"; // ex:  date = 2021-10-10, path = /step-2021-10-10.txt
+    String pathLSD = "/step.txt"; // ex:  date = 2021-10-10, path = /step-2021-10-10.txt
     File file = SD.open(pathLSD, FILE_READ);
     if (!file)
     {
@@ -1004,19 +989,22 @@ int readLastStepcountFromSD(String date)
         printSerial(message);
         return 0;
     }
-    String docSDR = "";
-    docSDR += file.readString();
-    printSerial(docSDR);
-    file.close();
-    // this doc is the json string, get the data from the json string
-    StaticJsonDocument<256> docjson;
-    DeserializationError error = deserializeJson(docjson, docSDR); // Convert string to JSON object
-    if (error)
+    String lastLine = "";
+    String line = "";
+    while (file.available())
     {
-        Serial.print("deserializeJson() failed: ");
-        printSerial(error.c_str());
-        return 0;
+        char ch = (char)file.read();
+        if (ch == '\n')
+        {
+            lastLine = line; // Save the last complete line
+            line = "";       // Start a new line
+        }
+        else
+        {
+            line += ch; // Add the character to the line
+        }
     }
-    int step = docjson["step"]; // 100
-    return step;
+    file.close();
+
+    return lastLine.toInt();
 }
