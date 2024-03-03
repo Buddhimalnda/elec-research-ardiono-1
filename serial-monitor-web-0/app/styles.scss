@@ -1,0 +1,13 @@
+
+.monitor{
+    @apply bg-black text-white h-screen w-full overflow-x-auto;
+    .row {
+        @apply flex justify-between items-center border-b-2 border-dashed border-green-950;
+        .col{
+            @apply mx-3 flex;
+        }
+        .no{
+            @apply border-r-2 border-white border-solid w-20;
+        }
+    } 
+}

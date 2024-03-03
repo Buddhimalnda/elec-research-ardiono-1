@@ -1,0 +1,12 @@
+.monitor {
+  @apply bg-black text-white h-screen w-full overflow-x-auto;
+}
+.monitor .row {
+  @apply flex justify-between items-center border-b-2 border-dashed border-green-950;
+}
+.monitor .row .col {
+  @apply mx-3 flex;
+}
+.monitor .row .no {
+  @apply border-r-2 border-white border-solid w-20;
+}/*# sourceMappingURL=styles.css.map */

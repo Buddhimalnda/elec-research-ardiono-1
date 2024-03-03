@@ -78,8 +78,7 @@ String USER_ID = "ltMvLzncQ6et1HDFmrDffP4r8NE3";
 bool onlineMode = false;
 bool stateOfSOS = false;
 bool stateOfACTIVITY = false;
--
-    bool connectedWifi = false;
+bool connectedWifi = false;
 
 // RGB LED
 int red = 0;
@@ -138,22 +137,22 @@ void setup()
     EEPROM.begin(EEPROM_SIZE);
     // if (onlineMode)
     // {
-    //     Serial.println(WiFi.localIP());
+    //     printSerial(WiFi.localIP());
     //     server.on("/", HTTP_GET, []()
     //               {
     //                   server.send(200, "text/html", getHtmlPage()); // Send web page with log data
     //               });
     //     server.begin();
     // }
-    xTaskCreate(
-        ListningSwitches,   // Task function
-        "ListningSwitches", // Name of the task
-        2048,               // Stack size (bytes)
-        NULL,               // Task input parameter
-        1,                  // Priority of the task
-        NULL);
-    if (onlineMode)
-        onlineModeAction();
+    // xTaskCreate(
+    //     ListningSwitches,   // Task function
+    //     "ListningSwitches", // Name of the task
+    //     2048,               // Stack size (bytes)
+    //     NULL,               // Task input parameter
+    //     1,                  // Priority of the task
+    //     NULL);
+    // if (onlineMode)
+    onlineModeAction();
 
     xTaskCreate(
         TaskRGB,      // Task function
@@ -180,37 +179,47 @@ void setup()
 }
 void onlineModeAction()
 {
+    printSerial("onlineModeAction");
     String fileDoc = "";
     File file;
     if (initializeSDCard())
     {
-        Serial.println("initializeSDCard");
         fileDoc = readDeviceJson(file);
         if (fileDoc != "")
         {
             // this doc is the json string, get the data from the json string
-            StaticJsonDocument<256> docjson;
-            DeserializationError error = deserializeJson(docjson, fileDoc); // Convert string to JSON object
-            if (error)
+            StaticJsonDocument<256> docjsonR;
+            DeserializationError errorR = deserializeJson(docjsonR, fileDoc); // Convert string to JSON object
+            if (errorR)
             {
-                Serial.print("deserializeJson() failed: ");
-                Serial.println(error.c_str());
+                printSerial("deserializeJson() failed: ");
+                printSerial(errorR.c_str());
                 return;
             }
             // const char *device = docjson["device"];     // "1002"
-            USER_EMAIL = docjson["email"].as<String>();           // "dn@rb.com"
-            USER_PASSWORD = docjson["password"].as<String>();     // "123455"
-            USER_ID = docjson["userId"].as<String>();             // "ltMvLzncQ6et1HDFmrDffP4r8NE3"
-            SSID = docjson["wifi"]["ssid"].as<String>();          // "SLT-4G_163BEA"
-            WIFI_PASS = docjson["wifi"]["password"].as<String>(); // "751FCEED"
+            USER_EMAIL = docjsonR["email"].as<String>();           // "dn@rb.com"
+            USER_PASSWORD = docjsonR["password"].as<String>();     // "123455"
+            USER_ID = docjsonR["userId"].as<String>();             // "ltMvLzncQ6et1HDFmrDffP4r8NE3"
+            SSID = docjsonR["wifi"]["ssid"].as<String>();          // "SLT-4G_163BEA"
+            WIFI_PASS = docjsonR["wifi"]["password"].as<String>(); // "751FCEED"
             connectToWiFi();
             initializeFirebase();
             onlineMode = true;
         }
+        int step = readLastStepcountFromSD(getDateForPath());
+        printSerial(step);
+        if (step > 0)
+        {
+            stepCount = step;
+        }
+        else
+        {
+            stepCount = 0;
+        }
     }
     else
     {
-        Serial.println("Non-initializeSDCard");
+        printSerial("Non-initializeSDCard");
         onlineMode = false;
     }
 }
@@ -219,13 +228,14 @@ void initializeMPU6050()
     Wire.begin(MPU_SDA, MPU_SCL);
     if (!mpu.begin())
     {
-        Serial.println("Failed to find MPU6050 chip");
+        printSerial("Failed to find MPU6050 chip");
+
         while (1)
         {
             delay(10);
         }
     }
-    Serial.println("MPU6050 Found!");
+    printSerial("MPU6050 Found!");
     mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
     mpu.setGyroRange(MPU6050_RANGE_250_DEG);
     mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
@@ -236,14 +246,14 @@ void connectToWiFi()
     while (WiFi.status() != WL_CONNECTED)
     {
         delay(1000);
-        Serial.println("Connecting to WiFi...");
+        printSerial("Connecting to WiFi...");
     }
-    Serial.println("Connected to WiFi");
+    printSerial("Connected to WiFi");
     connectedWifi = true;
 }
 void initializeFirebase()
 {
-    Serial.println("Initializing Firebase");
+    printSerial("Initializing Firebase");
     // Firebase.begin("FIREBASE_HOST", "FIREBASE_AUTH");
     config.api_key = FIREBASE_AUTH;
     config.database_url = FIREBASE_HOST;
@@ -269,11 +279,11 @@ void TaskRGB(void *pvParameters)
 {
     for (;;)
     { // Infinite loop
-        Serial.println("Task is running: TaskRGB");
+        printSerial("Task is running: TaskRGB");
         vTaskDelay(1000 / portTICK_PERIOD_MS); // Delay for a second
         if (onlineMode)
         {
-            Serial.println("onlineMode");
+            printSerial("onlineMode");
             if (!stateOfSOS)
             {
                 readRGBFromFirebse();
@@ -288,7 +298,7 @@ void TaskRGB(void *pvParameters)
         }
         else
         {
-            Serial.println("offlineMode");
+            printSerial("offlineMode");
             if (stateOfSOS)
             {
                 sos(true);
@@ -305,9 +315,9 @@ void TaskStepCounter(void *pvParameters)
 {
     for (;;)
     { // Infinite loop
-        Serial.println("Task is running: TaskStepCounter");
+        printSerial("Task is running: TaskStepCounter");
         vTaskDelay(150 / portTICK_PERIOD_MS); // Delay for a second
-        Serial.println("detectStep");
+        printSerial("detectStep");
         detectStep();
         displayStepCount();
     }
@@ -316,14 +326,14 @@ void ErrorIndicatorTask(void *pvParameters)
 {
     for (;;)
     { // Infinite loop
-        Serial.println("Task is running: ErrorIndicator");
+        printSerial("Task is running: ErrorIndicator");
         vTaskDelay(1000 / portTICK_PERIOD_MS); // Delay for a second
         uint8_t errorBinary = findErrorCode(errorIndicator.errorCode);
         uint8_t successBinary = findSuccessCode(successIndicator.successCode);
         uint8_t warningBinary = findWarningCode(warningIndicator.warningCode);
         uint8_t leds = errorBinary + successBinary + warningBinary;
 
-        Serial.println(errorBinary);
+        printSerial(errorBinary);
         // print
         printSerial("Error: " + errorIndicator.errorMessage);
         printSerial("Success: " + successIndicator.successMessage);
@@ -336,7 +346,7 @@ void ListningSwitches(void *pvParameters)
 {
     for (;;)
     { // Infinite loop
-        Serial.println("Task is running: ListningSwitches...");
+        printSerial("Task is running: ListningSwitches...");
         vTaskDelay(1000 / portTICK_PERIOD_MS); // Delay for a second
         int buttonState_SW2 = digitalRead(SW2_PIN);
         int buttonState_SW3 = digitalRead(SW3_PIN);
@@ -345,7 +355,7 @@ void ListningSwitches(void *pvParameters)
         if (buttonState_SW2 == LOW)
         {
             // The button is pressed; perform actions
-            Serial.println("SW2 is pressed");
+            printSerial("SW2 is pressed");
             if (onlineMode)
             {
                 onlineMode = false;
@@ -358,7 +368,7 @@ void ListningSwitches(void *pvParameters)
         if (buttonState_SW3 == LOW)
         {
             // The button is pressed; perform actions
-            Serial.println("SW3 is pressed");
+            printSerial("SW3 is pressed");
             if (++MODE > MODE_MAX)
             {
                 MODE = 0;
@@ -367,13 +377,13 @@ void ListningSwitches(void *pvParameters)
         if (buttonState_SW4 == LOW)
         {
             // The button is pressed; perform actions
-            Serial.println("SW4 is pressed");
+            printSerial("SW4 is pressed");
             sosAction();
         }
         if (buttonState_SW5 == LOW)
         {
             // The button is pressed; perform actions
-            Serial.println("SW5 is pressed");
+            printSerial("SW5 is pressed");
         }
     }
 }
@@ -381,11 +391,11 @@ void ListningSwitches(void *pvParameters)
 void loop()
 {
     // put your main code here, to run repeatedly:
-    // Serial.println("loop");
+    // printSerial("loop");
     // delay(1000);
     // if (onlineMode)
     // {
-    //     Serial.println(WiFi.localIP());
+    //     printSerial(WiFi.localIP());
     //     server.on("/", HTTP_GET, []()
     //               {
     //                   server.send(200, "text/html", getHtmlPage()); // Send web page with log data
@@ -395,8 +405,8 @@ void loop()
     // }
     // else
     // {
-    //     Serial.println("offlineMode");
-    //     Serial.println("device is offline 3s");
+    //     printSerial("offlineMode");
+    //     printSerial("device is offline 3s");
     //     delay(3000);
     //     ESP.restart();
     // }
@@ -404,70 +414,74 @@ void loop()
 
 void initializeRTC()
 {
-    Serial.println("Initializing RTC");
+    printSerial("Initializing RTC");
     Rtc.Begin();
     RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
 
     if (!Rtc.GetIsRunning())
     {
-        Serial.println("RTC was not actively running, starting now");
+        printSerial("RTC was not actively running, starting now");
         Rtc.SetIsRunning(true);
     }
     now = Rtc.GetDateTime();
     if (now < compiled)
     {
-        Serial.println("RTC is older than compile time! Updating");
+        printSerial("RTC is older than compile time! Updating");
         Rtc.SetDateTime(compiled);
     }
     else if (now > compiled)
     {
-        Serial.println("RTC is newer than compile time. Not updating");
+        printSerial("RTC is newer than compile time. Not updating");
     }
     else if (now == compiled)
     {
-        Serial.println("RTC is the same as compile time! Not updating");
+        printSerial("RTC is the same as compile time! Not updating");
     }
 }
 bool initializeSDCard()
 {
-    Serial.println("Initializing SD Card");
+    printSerial("Initializing SD Card");
     if (!SD.begin(SD_CS))
     {
-        Serial.println("SD Card initialization failed"); // SD Card initialization failed
+        printSerial("SD Card initialization failed"); // SD Card initialization failed
         return false;
     }
-    Serial.println("SD Card initialization successful");
+    printSerial("SD Card initialization successful");
     return true;
 }
 
 String readDeviceJson(File file)
 { // Adjust size as needed
     file = SD.open("/device.txt", FILE_READ);
-    String doc = "";
+    String docRDJ = "";
     if (!file)
     {
-        Serial.println("Failed to open device.json for reading");
-        return doc;
+        printSerial("Failed to open device.json for reading");
+        return docRDJ;
         // Return empty document in case of failure
     }
-    doc += file.readString();
-    Serial.println(doc);
+    docRDJ += file.readString();
+    printSerial(docRDJ);
     file.close();
-    return doc;
+    return docRDJ;
 }
 
 void initializeIndicationLEDs()
 {
+    printSerial("initializeIndicationLEDs start...");
     pinMode(DATA_PIN, OUTPUT);
     pinMode(LATCH_PIN, OUTPUT);
     pinMode(CLOCK_PIN, OUTPUT);
+    printSerial("initializeIndicationLEDs Done.");
 }
 
 void initializeRGBLEDs()
 {
+    printSerial("initializeRGBLEDs start...");
     pinMode(RGB_R, OUTPUT);
     pinMode(RGB_G, OUTPUT);
     pinMode(RGB_B, OUTPUT);
+    printSerial("initializeRGBLEDs Done.")
     // pinMode(OUT_LED, OUTPUT);
 }
 
@@ -533,10 +547,12 @@ void rgb(int r, int g, int b)
 
 void initializeSwitches()
 {
+    printSerial("initializeSwitches Start...");
     pinMode(SW2_PIN, INPUT_PULLUP);
     pinMode(SW3_PIN, INPUT_PULLUP);
     pinMode(SW4_PIN_SOS, INPUT_PULLUP);
     pinMode(SW5_PIN, INPUT_PULLUP);
+    printSerial("initializeSwitches Done.");
 }
 
 void sosAction()
@@ -557,12 +573,12 @@ bool readRGBFromFirebse()
         if (fbdo.dataType() == "int")
         {
             red = fbdo.intData();
-            Serial.println(red);
+            printSerial(red);
         }
     }
     else
     {
-        Serial.println(fbdo.errorReason());
+        printSerial(fbdo.errorReason());
         return false;
     }
     if (Firebase.RTDB.getInt(&fbdo, "/" + USER_ID + "/led/green"))
@@ -570,12 +586,12 @@ bool readRGBFromFirebse()
         if (fbdo.dataType() == "int")
         {
             green = fbdo.intData();
-            Serial.println(green);
+            printSerial(green);
         }
     }
     else
     {
-        Serial.println(fbdo.errorReason());
+        printSerial(fbdo.errorReason());
         return false;
     }
     if (Firebase.RTDB.getInt(&fbdo, "/" + USER_ID + "/led/blue"))
@@ -583,12 +599,12 @@ bool readRGBFromFirebse()
         if (fbdo.dataType() == "int")
         {
             blue = fbdo.intData();
-            Serial.println(blue);
+            printSerial(blue);
         }
     }
     else
     {
-        Serial.println(fbdo.errorReason());
+        printSerial(fbdo.errorReason());
         return false;
     }
     return true;
@@ -706,16 +722,45 @@ void updateFontPannel(uint8_t leds)
 void printSerial(String message)
 {
     Serial.println(message);
+    // create json object
+    DynamicJsonDocument docPrint(1024);
+    docPrint["message"] = message;
+    docPrint["date"] = getDate();
+    docPrint["time"] = getTime();
+    // serialize json to string
+    String output;
+    serializeJson(doc, output);
     if (onlineMode)
     {
         addLogData(message);
     }
+    logInSD(&output)
+}
+void logInSD(const String &message)
+{
+    File fileLSD = SD.open("/log.txt", FILE_APPEND);
+    if (fileLSD)
+    {
+
+        fileLSD.println(message);
+    }
+    else
+    {
+        printSerial("Failed to open log.txt for writing");
+    }
+    fileLSD.close();
 }
 
 String getDate()
 {
     now = Rtc.GetDateTime();
     String dateTime = String(now.Year(), DEC) + "/" + String(now.Month(), DEC) + "/" + String(now.Day(), DEC);
+    return dateTime;
+}
+String getDateForPath()
+{
+    now = Rtc.GetDateTime();
+    String dateTime = String(now.Year(), DEC) + "-" + String(now.Month(), DEC) + "-" + String(now.Day(), DEC);
     return dateTime;
 }
 String getTime()
@@ -735,7 +780,7 @@ bool readMpuData()
     // Serial.print(", Y: ");
     // Serial.print(a.acceleration.y);
     // Serial.print(", Z: ");
-    // Serial.println(a.acceleration.z);
+    // printSerial(a.acceleration.z);
 
     accelX = a.acceleration.x;
     accelY = a.acceleration.y;
@@ -756,22 +801,23 @@ void detectStep()
         {
             stepCount++;
             // saveStepCount();
-            addLogData("stepCount:");
-            addLogData(String(stepCount));
+            printSerial("Step Count: " + String(stepCount));
             printSerial("Step Count: " + String(stepCount));
             if (onlineMode)
             {
                 saveStepCountInCloud();
+                saveStepCountInSD();
             }
             else
             {
+                saveStepCountInSD();
             }
         }
         accMagnitudePrev = accMagnitude;
     }
     else
     {
-        Serial.println("Error reading MPU data");
+        printSerial("Error reading MPU data");
     }
 }
 
@@ -792,23 +838,24 @@ void saveStepCountInCloud()
 void saveStepCountInSD()
 {
     // Save stepCount to SD card
-    File file = SD.open("/step.txt", FILE_APPEND);
-    if (file)
+    String pathSSD = "/step-" + getDateForPath() + ".txt"; // ex:  date = 2021-10-10, path = /step-2021-10-10.txt
+    File fileSSD = SD.open(pathSSD, FILE_APPEND);
+    if (fileSSD)
     {
         // create json object
-        DynamicJsonDocument doc(1024);
-        doc["step"] = stepCount;
-        doc["date"] = getDate();
-        doc["time"] = getTime();
+        DynamicJsonDocument docSSD(1024);
+        docSSD["step"] = stepCount;
+        docSSD["date"] = getDate();
+        docSSD["time"] = getTime();
         // serialize json to string
-        String output;
-        serializeJson(doc, output);
-        file.println(output);
-        file.close();
+        String outputSSD = "";
+        serializeJson(docSSD, outputSSD);
+        fileSSD.println(outputSSD);
+        fileSSD.close();
     }
     else
     {
-        Serial.println("Failed to open stepCount.txt for writing");
+        printSerial("Failed to open stepCount.txt for writing");
     }
 }
 bool findLastDate()
@@ -817,59 +864,59 @@ bool findLastDate()
     FirebaseData fbdoLastIndex;
     // FirebaseJsonArray arr;
 
-    String path = "/" + USER_ID + "/count/step";
-    Serial.printf("Get Array... %s\n\n", Firebase.RTDB.getJSON(&fbdo, path) ? "ok" : fbdo.errorReason().c_str());
+    String pathFLD = "/" + USER_ID + "/count/step";
+    Serial.printf("Get Array... %s\n\n", Firebase.RTDB.getJSON(&fbdo, pathFLD) ? "ok" : fbdo.errorReason().c_str());
     if (fbdo.dataType() == "json")
     {
         json = fbdo.jsonObject();
-        Serial.println("Data type: " + fbdo.dataType());
+        printSerial("Data type: " + fbdo.dataType());
         FirebaseJsonData result;
 
         json.get(result, "/list");
         if (result.success)
         {
-            Serial.println(result.type);
+            printSerial(result.type);
         }
         FirebaseJsonArray arr;
         result.get<FirebaseJsonArray>(arr);
-        Serial.printf("Get Array... %s\n\n", Firebase.RTDB.getJSON(&fbdoLastIndex, path + "/list/" + (arr.size() - 1) + "/date") ? "ok" : fbdoLastIndex.errorReason().c_str());
+        Serial.printf("Get Array... %s\n\n", Firebase.RTDB.getJSON(&fbdoLastIndex, pathFLD + "/list/" + (arr.size() - 1) + "/date") ? "ok" : fbdoLastIndex.errorReason().c_str());
         if (fbdoLastIndex.dataType() == "string")
         {
             lastIndexInt = arr.size() - 1;
             String date = fbdoLastIndex.stringData();
-            Serial.println("Last date: " + date);
+            printSerial("Last date: " + date);
             if (date == getDate())
             {
-                Serial.println("Same date");
+                printSerial("Same date");
                 return true;
             }
             else
             {
-                Serial.println("Different date");
+                printSerial("Different date");
                 return false;
             }
         }
         else
         {
-            Serial.println("Invalid data type");
+            printSerial("Invalid data type");
             return false;
         }
     }
     else
     {
-        Serial.println("Invalid data type");
+        printSerial("Invalid data type");
         return false;
     }
 }
 void updateStepCount()
 {
     FirebaseJson json;
-    String path = "/" + USER_ID + "/count/step/list/" + lastIndexInt;
+    String pathUSC = "/" + USER_ID + "/count/step/list/" + lastIndexInt;
     json.set("/step", stepCount);
     json.set("/date", getDate());
     json.set("/time", getTime());
     // update json
-    Serial.printf("Update json... %s\n\n", Firebase.RTDB.updateNode(&fbdo, path, &json) ? "ok" : fbdo.errorReason().c_str());
+    Serial.printf("Update json... %s\n\n", Firebase.RTDB.updateNode(&fbdo, pathUSC, &json) ? "ok" : fbdo.errorReason().c_str());
     // logData();
     // delay(100);
 }
@@ -882,10 +929,10 @@ void addStepCount()
     json.set("/step", stepCount);
     json.set("/date", getDate());
     json.set("/time", getTime());
-    String path = "/" + USER_ID + "/count/step";
+    String pathASC = "/" + USER_ID + "/count/step";
     // arr.add(json);
     // update json
-    Serial.printf("Update json... %s\n\n", Firebase.RTDB.setJSON(&fbdo, path + "/list/" + (lastIndexInt + 1), &json) ? "ok" : fbdo.errorReason().c_str());
+    Serial.printf("Update json... %s\n\n", Firebase.RTDB.setJSON(&fbdo, pathASC + "/list/" + (lastIndexInt + 1), &json) ? "ok" : fbdo.errorReason().c_str());
     // logData();
     // delay(100);
 }
@@ -923,4 +970,53 @@ void addLogData(const String &message)
     {                                                 // Prevent string from becoming too large
         logDataServer = logDataServer.substring(500); // Keep the last part if it's too long
     }
+}
+
+void readStepCountFromEEPROM()
+{
+    // Read stepCount from EEPROM
+    EEPROM.get(0, stepCount);
+    printSerial("Step count: " + String(stepCount));
+}
+void readStepCounterLogFormSD()
+{
+    String pathCLSD = "/step-" + getDateForPath() + ".txt"; // ex:  date = 2021-10-10, path = /step-2021-10-10.txt
+    File file = SD.open(pathCLSD, FILE_READ);
+    if (!file)
+    {
+        String message = "Failed to open " + pathCLSD + " for reading";
+        printSerial(message);
+        return;
+    }
+    String docSD = "";
+    docSD += file.readString();
+    printSerial(docSD);
+    file.close();
+}
+
+int readLastStepcountFromSD(String date)
+{
+    String pathLSD = "/step-" + date + ".txt"; // ex:  date = 2021-10-10, path = /step-2021-10-10.txt
+    File file = SD.open(pathLSD, FILE_READ);
+    if (!file)
+    {
+        String message = "Failed to open " + pathLSD + " for reading";
+        printSerial(message);
+        return 0;
+    }
+    String docSDR = "";
+    docSDR += file.readString();
+    printSerial(docSDR);
+    file.close();
+    // this doc is the json string, get the data from the json string
+    StaticJsonDocument<256> docjson;
+    DeserializationError error = deserializeJson(docjson, docSDR); // Convert string to JSON object
+    if (error)
+    {
+        Serial.print("deserializeJson() failed: ");
+        printSerial(error.c_str());
+        return 0;
+    }
+    int step = docjson["step"]; // 100
+    return step;
 }
