@@ -10,16 +10,7 @@ void setup()
 
 void loop()
 {
-    rgb(100, 150, 100);
-    delay(500);
-    rgb(50, 255, 20);
-    delay(500);
-    rgb(0, 0, 255);
-    delay(500);
-    rgb(0, 0, 0);
-    delay(500);
     rgb(255, 255, 255);
-    delay(500);
 }
 void initializeRGBLEDs()
 {

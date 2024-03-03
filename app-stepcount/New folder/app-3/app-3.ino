@@ -46,7 +46,7 @@
 #define SW2_PIN 35     // wifi switch
 #define SW3_PIN 32     // Mode Switch
 #define SW4_PIN_SOS 34 // SOS Switch
-
+#define SW5_PIN 39     //
 #define DATA_PIN 33
 #define LATCH_PIN 26
 #define CLOCK_PIN 27

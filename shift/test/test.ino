@@ -27,7 +27,7 @@ void loop()
     // Display each pattern in the array for a short time
     for (int i = 0; i < numPatterns; i++)
     {
-        updateLEDs(patterns[i]);
+        updateLEDs(patterns[2]);
         delay(250); // Change the speed of the pattern display
     }
 }
