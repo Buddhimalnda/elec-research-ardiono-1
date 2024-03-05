@@ -136,15 +136,15 @@ void setup()
     initializeIndicationLEDs();
     initializeMPU6050();
     EEPROM.begin(EEPROM_SIZE);
-    // if (onlineMode)
-    // {
-    //     printSerial(WiFi.localIP());
-    //     server.on("/", HTTP_GET, []()
-    //               {
-    //                   server.send(200, "text/html", getHtmlPage()); // Send web page with log data
-    //               });
-    //     server.begin();
-    // }
+    if (onlineMode)
+    {
+        Serial.println(WiFi.localIP());
+        server.on("/", HTTP_GET, []()
+                  {
+                      server.send(200, "text/html", getHtmlPage()); // Send web page with log data
+                  });
+        server.begin();
+    }
     // xTaskCreate(
     //     ListningSwitches,   // Task function
     //     "ListningSwitches", // Name of the task
@@ -399,7 +399,10 @@ void loop()
     //                   server.send(200, "text/html", getHtmlPage()); // Send web page with log data
     //               });
     //     server.begin();
-    //     server.handleClient();
+    if (onlineMode)
+    {
+        server.handleClient();
+    }
     // }
     // else
     // {
@@ -802,11 +805,13 @@ void detectStep()
             stepCount++;
             // saveStepCount();
             printSerial("Step Count: " + String(stepCount));
-            if (onlineMode)
-            {
-                saveStepCountInCloud();
-            }
+
+            updateFontPannel(0b00000000);
+            delay(500);
+            saveStepCountInCloud();
             saveStepCountInSD();
+            updateFontPannel(0b00000001);
+            delay(500);
         }
         accMagnitudePrev = accMagnitude;
     }
