@@ -171,7 +171,7 @@ void setup()
         NULL);           // Task handle
     //                      // Task handle
     // xTaskCreate(
-    //     ErrorIndicatorTask, // Task function
+    // ErrorIndicatorTask, // Task function
     //     "ErrorIndicator",   // Name of the task
     //     2048,               // Stack size (bytes)
     //     NULL,               // Task input parameter
@@ -246,8 +246,11 @@ void connectToWiFi()
     WiFi.begin(SSID, WIFI_PASS);
     while (WiFi.status() != WL_CONNECTED)
     {
-        delay(1000);
+        updateFontPannel(0b00000000);
+        delay(500);
         printSerial("Connecting to WiFi...");
+        updateFontPannel(0b00011000);
+        delay(500);
     }
     printSerial("Connected to WiFi");
     connectedWifi = true;
@@ -835,6 +838,25 @@ void saveStepCountInSD()
     File fileSSD = SD.open(pathSSD, FILE_WRITE);
     if (fileSSD)
     {
+        // String stepCountLog = "Step Count: " + String(stepCount) + " Date: " + getDate() + " Time: " + getTime();
+        fileSSD.println(stepCount);
+        fileSSD.close();
+        saveStepCountInSDWithDate();
+    }
+    else
+    {
+        printSerial("Failed to open " + pathSSD + " for writing");
+    }
+}
+void saveStepCountInSDWithDate()
+{
+    // Save stepCount to SD card
+
+    String pathSSD = "/step-"+getDateForPath()+".txt"; // ex:  date = 2021-10-10, path = /step-2021-10-10.txt
+    File fileSSD = SD.open(pathSSD, FILE_WRITE);
+    if (fileSSD)
+    {
+        // String stepCountLog = "Step Count: " + String(stepCount) + " Date: " + getDate() + " Time: " + getTime();
         fileSSD.println(stepCount);
         fileSSD.close();
     }
@@ -843,84 +865,91 @@ void saveStepCountInSD()
         printSerial("Failed to open " + pathSSD + " for writing");
     }
 }
-bool findLastDate()
-{
-    FirebaseJson json;
-    FirebaseData fbdoLastIndex;
-    // FirebaseJsonArray arr;
+// bool findLastDate()
+// {
+//     FirebaseJson json;
+//     FirebaseData fbdoLastIndex;
+//     // FirebaseJsonArray arr;
 
-    String pathFLD = "/" + USER_ID + "/count/step";
-    Serial.printf("Get Array... %s\n\n", Firebase.RTDB.getJSON(&fbdo, pathFLD) ? "ok" : fbdo.errorReason().c_str());
-    if (fbdo.dataType() == "json")
-    {
-        json = fbdo.jsonObject();
-        printSerial("Data type: " + fbdo.dataType());
-        FirebaseJsonData result;
+//     String pathFLD = "/" + USER_ID + "/count/step";
+//     Serial.printf("Get Array... %s\n\n", Firebase.RTDB.getJSON(&fbdo, pathFLD) ? "ok" : fbdo.errorReason().c_str());
+//     if (fbdo.dataType() == "json")
+//     {
+//         json = fbdo.jsonObject();
+//         printSerial("Data type: " + fbdo.dataType());
+//         FirebaseJsonData result;
 
-        json.get(result, "/list");
-        if (result.success)
-        {
-            printSerial(result.type);
-        }
-        FirebaseJsonArray arr;
-        result.get<FirebaseJsonArray>(arr);
-        Serial.printf("Get Array... %s\n\n", Firebase.RTDB.getJSON(&fbdoLastIndex, pathFLD + "/list/" + (arr.size() - 1) + "/date") ? "ok" : fbdoLastIndex.errorReason().c_str());
-        if (fbdoLastIndex.dataType() == "string")
-        {
-            lastIndexInt = arr.size() - 1;
-            String date = fbdoLastIndex.stringData();
-            printSerial("Last date: " + date);
-            if (date == getDate())
-            {
-                printSerial("Same date");
-                return true;
-            }
-            else
-            {
-                printSerial("Different date");
-                return false;
-            }
-        }
-        else
-        {
-            printSerial("Invalid data type");
-            return false;
-        }
-    }
-    else
-    {
-        printSerial("Invalid data type");
-        return false;
-    }
-}
+//         json.get(result, "/list");
+//         if (result.success)
+//         {
+//             printSerial(result.type);
+//         }
+//         FirebaseJsonArray arr;
+//         result.get<FirebaseJsonArray>(arr);
+//         Serial.printf("Get Array... %s\n\n", Firebase.RTDB.getJSON(&fbdoLastIndex, pathFLD + "/list/" + (arr.size() - 1) + "/date") ? "ok" : fbdoLastIndex.errorReason().c_str());
+//         if (fbdoLastIndex.dataType() == "string")
+//         {
+//             lastIndexInt = arr.size() - 1;
+//             String date = fbdoLastIndex.stringData();
+//             printSerial("Last date: " + date);
+//             if (date == getDate())
+//             {
+//                 printSerial("Same date");
+//                 return true;
+//             }
+//             else
+//             {
+//                 printSerial("Different date");
+//                 return false;
+//             }
+//         }
+//         else
+//         {
+//             printSerial("Invalid data type");
+//             return false;
+//         }
+//     }
+//     else
+//     {
+//         printSerial("Invalid data type");
+//         return false;
+//     }
+// }
 void updateStepCount()
 {
-    FirebaseJson json;
-    String pathUSC = "/" + USER_ID + "/count/step/";
-    json.set("/step", stepCount);
-    // json.set("/date", getDate());
-    // json.set("/time", getTime());
+    FirebaseJson jsonUpdate;
+    String pathUSC = "/" + USER_ID + "/count/step/step";
+    jsonUpdate.add("/step", stepCount);
+    jsonUpdate.add("/date", getDate());
+    jsonUpdate.add("/time", getTime());
     // update json
-    Serial.printf("Update json... %s\n\n", Firebase.RTDB.updateNode(&fbdo, pathUSC, &json) ? "ok" : fbdo.errorReason().c_str());
-    // logData();
-    // delay(100);
-}
-void addStepCount()
-{
+    Serial.printf("Update json... %s\n\n", Firebase.RTDB.updateNode(&fbdo, pathUSC, &jsonUpdate) ? "ok" : fbdo.errorReason().c_str());
+    FirebaseJson jsonUpdateCodinate;
+    String pathUSCC = "/" + USER_ID + "/count/step/coordinate/"+getDateForPath()+"/"+getTime()+"/"+stepCount;
+    jsonUpdateCodinate.add("/lat", accelX);
+    jsonUpdateCodinate.add("/lng", accelY);
+    jsonUpdateCodinate.add("/alt", accelZ);
+    Serial.printf("Update json... %s\n\n", Firebase.RTDB.pushJSON(&fbdo, pathUSCC, &jsonUpdateCodinate) ? "ok" : fbdo.errorReason().c_str());
 
-    // FirebaseJsonArray arr;
-    // get old data
-    FirebaseJson json;
-    json.set("/step", stepCount);
-    json.set("/date", getDate());
-    json.set("/time", getTime());
-    String pathASC = "/" + USER_ID + "/count/step";
-    // arr.add(json);
-    // update json
-    Serial.printf("Update json... %s\n\n", Firebase.RTDB.setJSON(&fbdo, pathASC + "/list/" + (lastIndexInt + 1), &json) ? "ok" : fbdo.errorReason().c_str());
     // logData();
     // delay(100);
 }
+// void addStepCount()
+// {
+
+//     // FirebaseJsonArray arr;
+//     // get old data
+//     FirebaseJson json;
+//     json.set("/step", stepCount);
+//     json.set("/date", getDate());
+//     json.set("/time", getTime());
+//     String pathASC = "/" + USER_ID + "/count/step";
+//     // arr.add(json);
+//     // update json
+//     Serial.printf("Update json... %s\n\n", Firebase.RTDB.setJSON(&fbdo, pathASC + "/list/" + (lastIndexInt + 1), &json) ? "ok" : fbdo.errorReason().c_str());
+//     // logData();
+//     // delay(100);
+// }
 void displayStepCount()
 {
     printSerial("Steps: " + String(stepCount));
@@ -1007,4 +1036,20 @@ int readLastStepcountFromSD()
     file.close();
 
     return lastLine.toInt();
+}
+
+void logDataInCloudFirebase(String mzj)
+{
+    // log data to firebase
+    FirebaseJson json;
+    json.set("/message", mzj);
+    json.set("/date", getDate());
+    json.set("/time", getTime());
+    String path = "/" + USER_ID + "/log";
+    Serial.printf("Update json... %s\n\n", Firebase.RTDB.setJSON(&fbdo, path, &json) ? "ok" : fbdo.errorReason().c_str());
+    delay(100);
+}
+
+void logDataInCloudMonitor(String mzjtxt)
+{
 }
